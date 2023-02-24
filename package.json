@@ -1,0 +1,22 @@
+{
+  "name": "brutto",
+  "type": "module",
+  "exports": "./dist/brutto.js",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "esbuild brutto.js --bundle --minify --format=esm --outdir=dist",
+    "watch": "esbuild brutto.js --bundle --watch --format=esm --outdir=dist",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "morphdom": "^2.7.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.17.8"
+  }
+}
