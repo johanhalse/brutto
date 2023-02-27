@@ -105,9 +105,13 @@ class Brutto {
   }
 
   historyPop(obj) {
-    const state = this.states[obj.state.id];
-    morphdom(document.documentElement, state.cache);
-    window.scrollTo(state.scroll.x, state.scroll.y);
+    try {
+      const state = this.states[obj.state.id];
+      morphdom(document.documentElement, state.cache);
+      window.scrollTo(state.scroll.x, state.scroll.y);
+    } catch (err) {
+      location.href = location.href;
+    }
   }
 
   getScrollPosition() {
