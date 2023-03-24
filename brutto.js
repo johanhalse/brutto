@@ -60,6 +60,9 @@ class Brutto {
   }
 
   getParentFrame(el) {
+    if (!el) {
+      return;
+    }
     return el.closest("turbo-frame");
   }
 
@@ -74,6 +77,9 @@ class Brutto {
     const response = await this.formFetch(el, url, values);
     if (response.status == 301 || response.status == 302) {
       return this.visit(response.url);
+    }
+    if (response.status == 204) {
+      return this.visit(url);
     }
     const markup = await response.text();
     const frame = this.getParentFrame(el);
@@ -95,11 +101,35 @@ class Brutto {
   }
 
   formFetch(form, url, values) {
+    const token = this.getCookieValue(this.getMetaContent("csrf-param")) || this.getMetaContent("csrf-token");
     if (form.method.toLowerCase() == "get") {
-      return fetch(url, { method: form.method });
+      return fetch(url, {
+        method: form.method,
+        headers: { Accept: "text/html,application/xhtml+xml,application/xml", "X-CSRF-Token": token },
+      });
     } else {
-      return fetch(url, { method: form.method, body: values });
+      return fetch(url, {
+        method: form.method,
+        body: values,
+        headers: { Accept: "text/html,application/xhtml+xml,application/xml", "X-CSRF-Token": token },
+      });
     }
+  }
+
+  getCookieValue(cookieName) {
+    if (cookieName != null) {
+      const cookies = document.cookie ? document.cookie.split("; ") : [];
+      const cookie = cookies.find((cookie) => cookie.startsWith(cookieName));
+      if (cookie) {
+        const value = cookie.split("=").slice(1).join("=");
+        return value ? decodeURIComponent(value) : undefined;
+      }
+    }
+  }
+
+  getMetaContent(name) {
+    const element = document.querySelector(`meta[name="${name}"]`);
+    return element && element.content;
   }
 
   saveState(url, markup) {
