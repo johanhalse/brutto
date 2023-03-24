@@ -3,10 +3,6 @@ import morphdom from "morphdom";
 class Brutto {
   constructor() {
     this.states = {};
-    const el = document.documentElement;
-    const markup = el.innerHTML;
-    history.replaceState({ id: this.saveState(location.href, markup) }, "");
-
     window.addEventListener("popstate", this.historyPop.bind(this));
     window.addEventListener("click", this.onClick.bind(this));
     window.addEventListener("submit", this.onSubmit.bind(this));
@@ -42,6 +38,7 @@ class Brutto {
   onClick(e) {
     if (e.target.nodeName == "A") {
       e.preventDefault();
+      history.replaceState({ id: this.saveState(location.href, document.documentElement.innerHTML) }, "");
       this.visit(e.target.href, e.target);
     }
   }
@@ -104,22 +101,6 @@ class Brutto {
       return fetch(url, { method: form.method, body: values });
     }
   }
-
-  // submit(e) {
-  //   e.preventDefault();
-  //   const form = e.target.closest("form");
-  //   const formData = new FormData(form);
-
-  //   if (form.method.toLowerCase() == "get") {
-  //     const query = new URLSearchParams(formData).toString();
-  //     this.visit(form.action + "?" + query);
-  //   } else {
-  //     fetch(form.action, { method: "post", body: formData })
-  //       .then((r) => r.text())
-  //       .then(this.historyPush(form.action).bind(this))
-  //       .then(this.render.bind(this));
-  //   }
-  // }
 
   saveState(url, markup) {
     const randomId = self.crypto.randomUUID();
