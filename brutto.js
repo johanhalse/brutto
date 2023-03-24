@@ -73,7 +73,8 @@ class Brutto {
 
   async submit(el) {
     const values = new FormData(el);
-    const response = await this.formFetch(el, values);
+    const url = this.formUrl(el, values);
+    const response = await this.formFetch(el, url, values);
     if (response.status == 301 || response.status == 302) {
       return this.visit(response.url);
     }
@@ -88,12 +89,19 @@ class Brutto {
     }
   }
 
-  formFetch(form, values) {
+  formUrl(form, values) {
     if (form.method.toLowerCase() == "get") {
-      const url = form.action + "?" + new URLSearchParams(values);
+      return form.action + "?" + new URLSearchParams(values);
+    } else {
+      return form.action;
+    }
+  }
+
+  formFetch(form, url, values) {
+    if (form.method.toLowerCase() == "get") {
       return fetch(url, { method: form.method });
     } else {
-      return fetch(form.action, { method: form.method, body: values });
+      return fetch(url, { method: form.method, body: values });
     }
   }
 
