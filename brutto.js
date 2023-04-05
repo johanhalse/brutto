@@ -52,10 +52,11 @@ class Brutto {
     const frame = this.getParentFrame(el);
     if (frame) {
       this.renderFrame(frame, markup);
-      this.partialFireEvent("turbo:frame-load")();
+      window.requestAnimationFrame(this.partialFireEvent("turbo:load"));
     } else {
       this.historyPush(url, markup);
       this.render(markup);
+      window.requestAnimationFrame(this.partialFireEvent("turbo:load"));
     }
   }
 
@@ -85,10 +86,11 @@ class Brutto {
     const frame = this.getParentFrame(el);
     if (frame) {
       this.renderFrame(frame, markup);
-      this.partialFireEvent("turbo:frame-load")();
+      window.requestAnimationFrame(this.partialFireEvent("turbo:load"));
     } else {
       this.historyPush(url, markup);
       this.render(markup);
+      window.requestAnimationFrame(this.partialFireEvent("turbo:load"));
     }
   }
 
@@ -158,6 +160,7 @@ class Brutto {
       const state = this.states[obj.state.id];
       morphdom(document.documentElement, state.cache);
       window.scrollTo(state.scroll.x, state.scroll.y);
+      window.requestAnimationFrame(this.partialFireEvent("turbo:load"));
     } catch (err) {
       location.href = location.href;
     }
