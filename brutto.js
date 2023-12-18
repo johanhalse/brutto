@@ -44,10 +44,10 @@ class Brutto {
 
   onSubmit(e) {
     e.preventDefault();
-    this.submit(e.originalTarget);
+    this.submit(e.originalTarget, this.afterSubmit.bind(this));
   }
 
-  async submit(el) {
+  async submit(el, cb) {
     const values = new FormData(el);
     const url = this.formUrl(el, values);
     const response = await this.formFetch(el, url, values);
@@ -58,9 +58,13 @@ class Brutto {
       return this.visit(url);
     }
     const markup = await response.text();
+    cb(markup, url);
+    window.requestAnimationFrame(this.partialFireEvent("turbo:load"));
+  }
+
+  afterSubmit(markup, url) {
     this.historyPush(url, markup);
     this.render(markup);
-    window.requestAnimationFrame(this.partialFireEvent("turbo:load"));
   }
 
   formUrl(form, values) {

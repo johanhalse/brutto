@@ -15,14 +15,19 @@ export default class TurboFrame extends window.HTMLElement {
     if (e.target.nodeName == "A") {
       e.preventDefault();
       e.stopPropagation();
-      this.visit(e.target.href);
+      window.Brutto.visit(e.target.href, this.onVisit.bind(this));
     }
   }
 
   onSubmit(e) {
     e.preventDefault();
     e.stopPropagation();
-    console.log("shub-niggurath");
+    window.Brutto.submit(e.originalTarget, this.render.bind(this));
+  }
+
+  onVisit(url, markup) {
+    this.render(markup);
+    window.requestAnimationFrame(window.Brutto.partialFireEvent("turbo:load"));
   }
 
   async load(url) {
@@ -37,16 +42,6 @@ export default class TurboFrame extends window.HTMLElement {
     const parser = new DOMParser();
     const dom = parser.parseFromString(markup, "text/html");
     morphdom(this, dom.body);
-  }
-
-  async visit(url) {
-    const response = await fetch(url);
-    if (response.status == 301 || response.status == 302) {
-      return this.visit(response.url);
-    }
-    const markup = await response.text();
-    this.render(markup);
-    window.requestAnimationFrame(window.Brutto.partialFireEvent("turbo:load"));
   }
 
   render(markup) {
