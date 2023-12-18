@@ -1,4 +1,5 @@
 import morphdom from "morphdom";
+import TurboFrame from "./turbo-frame";
 
 class Brutto {
   constructor() {
@@ -8,14 +9,11 @@ class Brutto {
     window.addEventListener("submit", this.onSubmit.bind(this));
     window.addEventListener("load", this.partialFireEvent("turbo:load"), false);
 
-    this.loadFrames();
+    this.initFrames();
   }
 
-  loadFrames() {
-    const frames = Array.from(document.querySelectorAll("turbo-frame[src]"));
-    for (var i = frames.length - 1; i >= 0; i--) {
-      this.visit(frames[i].getAttribute("src"), frames[i]);
-    }
+  initFrames() {
+    window.customElements.define("turbo-frame", TurboFrame);
   }
 
   partialFireEvent(evt) {
@@ -23,16 +21,6 @@ class Brutto {
       const event = new CustomEvent(evt);
       document.dispatchEvent(event);
     };
-  }
-
-  renderFrame(frame, markup) {
-    const dom = this.markupToDom(markup);
-    morphdom(frame, dom.getElementById(frame.id));
-  }
-
-  markupToDom(markup) {
-    var parser = new DOMParser();
-    return parser.parseFromString(markup, "text/html");
   }
 
   onClick(e) {
@@ -49,22 +37,9 @@ class Brutto {
       return this.visit(response.url);
     }
     const markup = await response.text();
-    const frame = this.getParentFrame(el);
-    if (frame) {
-      this.renderFrame(frame, markup);
-      window.requestAnimationFrame(this.partialFireEvent("turbo:load"));
-    } else {
-      this.historyPush(url, markup);
-      this.render(markup);
-      window.requestAnimationFrame(this.partialFireEvent("turbo:load"));
-    }
-  }
-
-  getParentFrame(el) {
-    if (!el) {
-      return;
-    }
-    return el.closest("turbo-frame");
+    this.historyPush(url, markup);
+    this.render(markup);
+    window.requestAnimationFrame(this.partialFireEvent("turbo:load"));
   }
 
   onSubmit(e) {
@@ -83,15 +58,9 @@ class Brutto {
       return this.visit(url);
     }
     const markup = await response.text();
-    const frame = this.getParentFrame(el);
-    if (frame) {
-      this.renderFrame(frame, markup);
-      window.requestAnimationFrame(this.partialFireEvent("turbo:load"));
-    } else {
-      this.historyPush(url, markup);
-      this.render(markup);
-      window.requestAnimationFrame(this.partialFireEvent("turbo:load"));
-    }
+    this.historyPush(url, markup);
+    this.render(markup);
+    window.requestAnimationFrame(this.partialFireEvent("turbo:load"));
   }
 
   formUrl(form, values) {
