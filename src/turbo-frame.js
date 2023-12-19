@@ -22,7 +22,7 @@ export default class TurboFrame extends window.HTMLElement {
   onSubmit(e) {
     e.preventDefault();
     e.stopPropagation();
-    window.Brutto.submit(e.originalTarget, this.render.bind(this));
+    window.Brutto.submit(e.target, this.render.bind(this));
   }
 
   onVisit(url, markup) {
