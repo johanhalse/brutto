@@ -1,5 +1,5 @@
 {
-  "name": "brutto",
+  "name": "@johanhalse/brutto",
   "type": "module",
   "exports": "./dist/brutto.js",
   "version": "1.0.0",
