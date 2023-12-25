@@ -24,6 +24,7 @@ class Brutto {
   }
 
   onClick(e) {
+    if (e.target.dataset["turbo"] == "false") { return; }
     if (e.target.nodeName == "A") {
       e.preventDefault();
       history.replaceState({ id: this.saveState(location.href, document.documentElement.innerHTML) }, "");
