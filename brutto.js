@@ -1,4 +1,5 @@
 import morphdom from "morphdom";
+import TurboFrame from "./src/turbo-frame";
 
 class Brutto {
   constructor() {
@@ -8,14 +9,11 @@ class Brutto {
     window.addEventListener("submit", this.onSubmit.bind(this));
     window.addEventListener("load", this.partialFireEvent("turbo:load"), false);
 
-    this.loadFrames();
+    this.initFrames();
   }
 
-  loadFrames() {
-    const frames = Array.from(document.querySelectorAll("turbo-frame[src]"));
-    for (var i = frames.length - 1; i >= 0; i--) {
-      this.visit(frames[i].getAttribute("src"), frames[i]);
-    }
+  initFrames() {
+    window.customElements.define("turbo-frame", TurboFrame);
   }
 
   partialFireEvent(evt) {
@@ -25,17 +23,8 @@ class Brutto {
     };
   }
 
-  renderFrame(frame, markup) {
-    const dom = this.markupToDom(markup);
-    morphdom(frame, dom.getElementById(frame.id));
-  }
-
-  markupToDom(markup) {
-    var parser = new DOMParser();
-    return parser.parseFromString(markup, "text/html");
-  }
-
   onClick(e) {
+    if (e.target.dataset["turbo"] == "false") { return; }
     if (e.target.nodeName == "A") {
       e.preventDefault();
       history.replaceState({ id: this.saveState(location.href, document.documentElement.innerHTML) }, "");
@@ -49,30 +38,23 @@ class Brutto {
       return this.visit(response.url);
     }
     const markup = await response.text();
-    const frame = this.getParentFrame(el);
-    if (frame) {
-      this.renderFrame(frame, markup);
-      window.requestAnimationFrame(this.partialFireEvent("turbo:load"));
-    } else {
-      this.historyPush(url, markup);
-      this.render(markup);
-      window.requestAnimationFrame(this.partialFireEvent("turbo:load"));
-    }
-  }
-
-  getParentFrame(el) {
-    if (!el) {
-      return;
-    }
-    return el.closest("turbo-frame");
+    this.historyPush(url, markup);
+    this.render(markup);
+    window.requestAnimationFrame(this.partialFireEvent("turbo:load"));
   }
 
   onSubmit(e) {
     e.preventDefault();
-    this.submit(e.originalTarget);
+
+    if (e.target.dataset["turboStream"] != undefined) {
+      this.submit(e.target, this.stream.bind(this));
+    }
+    else {
+      this.submit(e.target, this.afterSubmit.bind(this));
+    }
   }
 
-  async submit(el) {
+  async submit(el, cb) {
     const values = new FormData(el);
     const url = this.formUrl(el, values);
     const response = await this.formFetch(el, url, values);
@@ -83,15 +65,59 @@ class Brutto {
       return this.visit(url);
     }
     const markup = await response.text();
-    const frame = this.getParentFrame(el);
-    if (frame) {
-      this.renderFrame(frame, markup);
-      window.requestAnimationFrame(this.partialFireEvent("turbo:load"));
-    } else {
-      this.historyPush(url, markup);
-      this.render(markup);
-      window.requestAnimationFrame(this.partialFireEvent("turbo:load"));
+    cb(markup, url);
+    window.requestAnimationFrame(this.partialFireEvent("turbo:load"));
+  }
+
+  stream(markup, url) {
+    const parser = new DOMParser();
+    const dom = parser.parseFromString(markup, "text/html");
+    Array.from(dom.querySelectorAll("turbo-stream")).forEach(this.processStreamTemplate.bind(this));
+  }
+
+  processStreamTemplate(streamNode) {
+    const action = streamNode.getAttribute("action");
+    const target = streamNode.getAttribute("target");
+    const targets = streamNode.getAttribute("targets"); // TODO
+    const template = streamNode.querySelector("template");
+
+    if (target) {
+      this.processStreamTarget(document.getElementById(target), action, template);
     }
+    if (targets) {
+      const targetEls = document.querySelectorAll(targets);
+      for(let i = 0; i < targetEls.length; i++) {
+        this.processStreamTarget(targetEls[i], action, template);
+      }
+    }
+  }
+
+  processStreamTarget(target, action, template) {
+    switch(action) {
+    case "after":
+      target.after(template.content.cloneNode(true));
+      break;
+    case "append":
+      target.append(template.content.cloneNode(true));
+      break;
+    case "before":
+      target.parentElement.insertBefore(template.content.cloneNode(true), target);
+      break;
+    case "prepend":
+      target.prepend(template.content.cloneNode(true));
+      break;
+    case "remove":
+      target.remove();
+      break;
+    case "update":
+      target.replaceChildren(template.content.cloneNode(true));
+      break;
+    }
+  }
+
+  afterSubmit(markup, url) {
+    this.historyPush(url, markup);
+    this.render(markup);
   }
 
   formUrl(form, values) {
@@ -102,18 +128,27 @@ class Brutto {
     }
   }
 
+  acceptValue(form) {
+    if (form.dataset["turbo-stream"]) {
+      return "text/vnd.turbo-stream.html, text/html, application/xhtml+xml";
+    }
+    else {
+      return "text/html,application/xhtml+xml,application/xml";
+    }
+  }
+
   formFetch(form, url, values) {
     const token = this.getCookieValue(this.getMetaContent("csrf-param")) || this.getMetaContent("csrf-token");
     if (form.method.toLowerCase() == "get") {
       return fetch(url, {
         method: form.method,
-        headers: { Accept: "text/html,application/xhtml+xml,application/xml", "X-CSRF-Token": token },
+        headers: { Accept: this.acceptValue(form), "X-CSRF-Token": token },
       });
     } else {
       return fetch(url, {
         method: form.method,
         body: values,
-        headers: { Accept: "text/html,application/xhtml+xml,application/xml", "X-CSRF-Token": token },
+        headers: { Accept: this.acceptValue(form), "X-CSRF-Token": token },
       });
     }
   }
