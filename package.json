@@ -2,8 +2,8 @@
   "name": "@johanhalse/brutto",
   "type": "module",
   "exports": "./dist/brutto.js",
-  "version": "1.0.0",
-  "description": "",
+  "version": "0.1.0",
+  "description": "Kinda like Turbo but a lot less",
   "main": "brutto.js",
   "scripts": {
     "build": "esbuild brutto.js --bundle --minify --format=esm --outdir=dist",
