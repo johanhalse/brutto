@@ -500,29 +500,125 @@ function morphdomFactory(morphAttrs2) {
 var morphdom = morphdomFactory(morphAttrs);
 var morphdom_esm_default = morphdom;
 
-// src/turbo-frame.js
+// lib/http.js
+var http_default = {
+  createPatchForm(url, method) {
+    const f = `<form method="post" action="${url}"><input type="hidden" name="_method" value="${method}" /></form>`;
+    const parser = new DOMParser();
+    return parser.parseFromString(f, "text/html").querySelector("form");
+  },
+  getAcceptValue: function(target) {
+    if (target.dataset["turboStream"]) {
+      return "text/vnd.turbo-stream.html, text/html, application/xhtml+xml";
+    } else {
+      return "text/html,application/xhtml+xml,application/xml";
+    }
+  },
+  getBody(target) {
+    return new FormData(target);
+  },
+  getCookieValue(cookieName) {
+    if (cookieName != null) {
+      const cookies = document.cookie ? document.cookie.split("; ") : [];
+      const cookie = cookies.find((cookie2) => cookie2.startsWith(cookieName));
+      if (cookie) {
+        const value = cookie.split("=").slice(1).join("=");
+        return value ? decodeURIComponent(value) : void 0;
+      }
+    }
+  },
+  getFormResponse: async function(target) {
+    return await this.performSubmit(
+      this.getUrl(target),
+      this.getMethod(target),
+      this.getBody(target),
+      this.getAcceptValue(target)
+    );
+  },
+  getLinkResponse: async function(url, method) {
+    if (method == "get") {
+      return this.performFetch(url);
+    } else {
+      const patchForm = this.createPatchForm(url, method);
+      return this.getFormResponse(patchForm);
+    }
+  },
+  getMetaContent(name) {
+    const element = document.querySelector(`meta[name="${name}"]`);
+    return element && element.content;
+  },
+  getMethod(target) {
+    if (target.dataset["turboMethod"]) {
+      return target.dataset["turboMethod"].toLowerCase();
+    }
+    if (target.method) {
+      return target.method;
+    }
+    return "get";
+  },
+  getUrl(target) {
+    if (target.getAttribute("action")) {
+      return target.getAttribute("action");
+    }
+    return target.getAttribute("href");
+  },
+  onClick(e) {
+    if (e.target.dataset["turbo"] == "false") {
+      return true;
+    }
+    if (e.target.nodeName == "A") {
+      e.preventDefault();
+      e.stopPropagation();
+      this.visit(this.getUrl(e.target), this.getMethod(e.target));
+    }
+  },
+  onSubmit(e) {
+    if (e.target.dataset["turbo"] == "false") {
+      return true;
+    }
+    e.preventDefault();
+    e.stopPropagation();
+    this.submit(e.target);
+  },
+  performFetch: function(url) {
+    return fetch(url, { headers: { Accept: "text/html,application/xhtml+xml,application/xml" } });
+  },
+  performSubmit: async function(url, method, body, acceptValue) {
+    const token = this.getCookieValue(this.getMetaContent("csrf-param")) || this.getMetaContent("csrf-token");
+    if (method == "get") {
+      return fetch(this.queryValueUrl(url, body), {
+        method,
+        headers: { Accept: acceptValue, "X-CSRF-Token": token }
+      });
+    } else {
+      return fetch(url, {
+        method,
+        body,
+        headers: { Accept: acceptValue, "X-CSRF-Token": token }
+      });
+    }
+  },
+  queryValueUrl(url, body) {
+    const params = new URLSearchParams(body);
+    return `${url}?${params}`;
+  }
+};
+
+// lib/turbo-frame.js
 var TurboFrame = class extends window.HTMLElement {
   constructor() {
     super();
     this.addEventListener("click", this.onClick.bind(this), false);
-    this.addEventListener("submit", this.onSubmit.bind(this), false);
     if (this.getAttribute("src")) {
       this.load(this.getAttribute("src"));
     }
   }
-  onClick(e) {
-    if (e.target.nodeName == "A") {
-      e.preventDefault();
-      e.stopPropagation();
-      window.Brutto.visit(e.target.href, this.onVisit.bind(this));
+  async visit(url, method) {
+    const response = await this.getLinkResponse(url, method);
+    if (response.redirected) {
+      return this.visit(response.url, "get");
     }
-  }
-  onSubmit(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    window.Brutto.submit(e.target, this.render.bind(this));
-  }
-  onVisit(url, markup) {
+    const markup = await response.text();
     this.render(markup);
     window.requestAnimationFrame(window.Brutto.partialFireEvent("turbo:load"));
   }
@@ -531,7 +627,7 @@ var TurboFrame = class extends window.HTMLElement {
     if (response.status == 404) {
       return console.warn("URL '" + url + "' returns 404 Not Found!", this);
     }
-    if (response.status == 301 || response.status == 302) {
+    if (response.redirected) {
       return this.load(response.url);
     }
     const markup = await response.text();
@@ -546,11 +642,17 @@ var TurboFrame = class extends window.HTMLElement {
     }
     const parser = new DOMParser();
     const dom = parser.parseFromString(markup, "text/html");
+    if (dom.getElementById(this.id) == null) {
+      console.warn(`Turbo frame element with id ${this.id} not found in response!`, this);
+      return;
+    }
     morphdom_esm_default(this, dom.getElementById(this.id));
   }
-  loadSrc(src) {
+  afterSubmit(markup, url) {
+    this.render(markup);
   }
 };
+Object.assign(TurboFrame.prototype, http_default);
 
 // brutto.js
 var Brutto = class {
@@ -571,53 +673,24 @@ var Brutto = class {
       document.dispatchEvent(event);
     };
   }
-  onClick(e) {
-    if (e.target.dataset["turbo"] == "false") {
-      return;
-    }
-    if (e.target.nodeName == "A") {
-      e.preventDefault();
-      history.replaceState({ id: this.saveState(location.href, document.documentElement.innerHTML) }, "");
-      if (e.target.dataset["turboMethod"]) {
-        this.patch(e.target.href, e.target, e.target.dataset["turboMethod"]);
-      } else {
-        this.visit(e.target.href, e.target);
-      }
-    }
-  }
-  async patch(url, el, method) {
-    const f = `<form method="post" action="${url}"><input type="hidden" name="_method" value="${method}" /></form>`;
-    const parser = new DOMParser();
-    const form = parser.parseFromString(f, "text/html").querySelector("form");
-    this.submit(form, this.afterSubmit.bind(this));
-  }
-  async visit(url, el) {
-    const response = await fetch(url, { headers: { Accept: "text/html,application/xhtml+xml,application/xml" } });
-    if (response.status == 301 || response.status == 302) {
-      return this.visit(response.url);
+  async visit(url, method) {
+    const response = await this.getLinkResponse(url, method);
+    if (response.redirected) {
+      return this.visit(response.url, "get");
     }
     const markup = await response.text();
     this.historyPush(url, markup);
     this.render(markup);
     window.requestAnimationFrame(this.partialFireEvent("turbo:load"));
   }
-  onSubmit(e) {
-    e.preventDefault();
-    if (e.target.dataset["turboStream"] != void 0) {
-      this.submit(e.target, this.stream.bind(this));
-    } else {
-      this.submit(e.target, this.afterSubmit.bind(this));
-    }
-  }
-  async submit(el, cb) {
-    const values = new FormData(el);
-    const url = this.formUrl(el, values);
-    const response = await this.formFetch(el, url, values);
-    if (response.status == 204) {
-      return this.visit(url);
+  async submit(el) {
+    const response = await this.getFormResponse(el);
+    if (response.redirected) {
+      return this.visit(response.url, "get");
     }
     const markup = await response.text();
-    cb(markup, response.url);
+    this.historyPush(response.url, markup);
+    this.render(markup);
     window.requestAnimationFrame(this.partialFireEvent("turbo:load"));
   }
   stream(markup, url) {
@@ -673,42 +746,6 @@ var Brutto = class {
       return form.action;
     }
   }
-  acceptValue(form) {
-    if (form.dataset["turbo-stream"]) {
-      return "text/vnd.turbo-stream.html, text/html, application/xhtml+xml";
-    } else {
-      return "text/html,application/xhtml+xml,application/xml";
-    }
-  }
-  formFetch(form, url, values) {
-    const token = this.getCookieValue(this.getMetaContent("csrf-param")) || this.getMetaContent("csrf-token");
-    if (form.method.toLowerCase() == "get") {
-      return fetch(url, {
-        method: form.method,
-        headers: { Accept: this.acceptValue(form), "X-CSRF-Token": token }
-      });
-    } else {
-      return fetch(url, {
-        method: form.method,
-        body: values,
-        headers: { Accept: this.acceptValue(form), "X-CSRF-Token": token }
-      });
-    }
-  }
-  getCookieValue(cookieName) {
-    if (cookieName != null) {
-      const cookies = document.cookie ? document.cookie.split("; ") : [];
-      const cookie = cookies.find((cookie2) => cookie2.startsWith(cookieName));
-      if (cookie) {
-        const value = cookie.split("=").slice(1).join("=");
-        return value ? decodeURIComponent(value) : void 0;
-      }
-    }
-  }
-  getMetaContent(name) {
-    const element = document.querySelector(`meta[name="${name}"]`);
-    return element && element.content;
-  }
   saveState(url, markup) {
     const randomId = self.crypto.randomUUID();
     this.states[randomId] = {
@@ -743,6 +780,7 @@ var Brutto = class {
     };
   }
 };
+Object.assign(Brutto.prototype, http_default);
 var brutto = new Brutto();
 window.Brutto = brutto;
 var brutto_default = brutto;
