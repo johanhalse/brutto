@@ -24,29 +24,41 @@ class Brutto {
     };
   }
 
-  async visit(url, method) {
+  async visit(url, method, stream) {
     const response = await this.getLinkResponse(url, method);
     if (response.redirected) {
       return this.visit(response.url, "get");
     }
+
     const markup = await response.text();
-    this.historyPush(url, markup);
-    this.render(markup);
+    if (stream) {
+      this.renderStream(markup)
+    }
+    else {
+      this.historyPush(response.url, markup);
+      this.render(markup);
+    }
     window.requestAnimationFrame(this.partialFireEvent("turbo:load"));
   }
 
-  async submit(el) {
+  async submit(el, stream) {
     const response = await this.getFormResponse(el);
     if (response.redirected) {
       return this.visit(response.url, "get");
     }
+
     const markup = await response.text();
-    this.historyPush(response.url, markup);
-    this.render(markup);
+    if (stream) {
+      this.renderStream(markup)
+    }
+    else {
+      this.historyPush(response.url, markup);
+      this.render(markup);
+    }
     window.requestAnimationFrame(this.partialFireEvent("turbo:load"));
   }
 
-  stream(markup, url) {
+  renderStream(markup, url) {
     const parser = new DOMParser();
     const dom = parser.parseFromString(markup, "text/html");
     Array.from(dom.querySelectorAll("turbo-stream")).forEach(this.processStreamTemplate.bind(this));
@@ -55,7 +67,7 @@ class Brutto {
   processStreamTemplate(streamNode) {
     const action = streamNode.getAttribute("action");
     const target = streamNode.getAttribute("target");
-    const targets = streamNode.getAttribute("targets"); // TODO
+    const targets = streamNode.getAttribute("targets");
     const template = streamNode.querySelector("template");
 
     if (target) {

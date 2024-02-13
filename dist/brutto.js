@@ -569,7 +569,11 @@ var http_default = {
     if (e.target.nodeName == "A") {
       e.preventDefault();
       e.stopPropagation();
-      this.visit(this.getUrl(e.target), this.getMethod(e.target));
+      this.visit(
+        this.getUrl(e.target),
+        this.getMethod(e.target),
+        e.target.dataset["turboStream"] != void 0
+      );
     }
   },
   onSubmit(e) {
@@ -578,7 +582,7 @@ var http_default = {
     }
     e.preventDefault();
     e.stopPropagation();
-    this.submit(e.target);
+    this.submit(e.target, e.target.dataset["turboStream"] != void 0);
   },
   performFetch: function(url) {
     return fetch(url, { headers: { Accept: "text/html,application/xhtml+xml,application/xml" } });
@@ -586,10 +590,7 @@ var http_default = {
   performSubmit: async function(url, method, body, acceptValue) {
     const token = this.getCookieValue(this.getMetaContent("csrf-param")) || this.getMetaContent("csrf-token");
     if (method == "get") {
-      return fetch(this.queryValueUrl(url, body), {
-        method,
-        headers: { Accept: acceptValue, "X-CSRF-Token": token }
-      });
+      return this.performFetch(this.queryValueUrl(url, body));
     } else {
       return fetch(url, {
         method,
@@ -673,27 +674,35 @@ var Brutto = class {
       document.dispatchEvent(event);
     };
   }
-  async visit(url, method) {
+  async visit(url, method, stream) {
     const response = await this.getLinkResponse(url, method);
     if (response.redirected) {
       return this.visit(response.url, "get");
     }
     const markup = await response.text();
-    this.historyPush(url, markup);
-    this.render(markup);
+    if (stream) {
+      this.renderStream(markup);
+    } else {
+      this.historyPush(response.url, markup);
+      this.render(markup);
+    }
     window.requestAnimationFrame(this.partialFireEvent("turbo:load"));
   }
-  async submit(el) {
+  async submit(el, stream) {
     const response = await this.getFormResponse(el);
     if (response.redirected) {
       return this.visit(response.url, "get");
     }
     const markup = await response.text();
-    this.historyPush(response.url, markup);
-    this.render(markup);
+    if (stream) {
+      this.renderStream(markup);
+    } else {
+      this.historyPush(response.url, markup);
+      this.render(markup);
+    }
     window.requestAnimationFrame(this.partialFireEvent("turbo:load"));
   }
-  stream(markup, url) {
+  renderStream(markup, url) {
     const parser = new DOMParser();
     const dom = parser.parseFromString(markup, "text/html");
     Array.from(dom.querySelectorAll("turbo-stream")).forEach(this.processStreamTemplate.bind(this));
