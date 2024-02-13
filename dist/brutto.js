@@ -569,6 +569,7 @@ var http_default = {
     if (e.target.nodeName == "A") {
       e.preventDefault();
       e.stopPropagation();
+      history.replaceState({ id: this.saveState(location.href, document.documentElement.innerHTML) }, "");
       this.visit(
         this.getUrl(e.target),
         this.getMethod(e.target),
@@ -582,6 +583,7 @@ var http_default = {
     }
     e.preventDefault();
     e.stopPropagation();
+    history.replaceState({ id: this.saveState(location.href, document.documentElement.innerHTML) }, "");
     this.submit(e.target, e.target.dataset["turboStream"] != void 0);
   },
   performFetch: function(url) {
@@ -690,9 +692,6 @@ var Brutto = class {
   }
   async submit(el, stream) {
     const response = await this.getFormResponse(el);
-    if (response.redirected) {
-      return this.visit(response.url, "get");
-    }
     const markup = await response.text();
     if (stream) {
       this.renderStream(markup);
@@ -742,17 +741,6 @@ var Brutto = class {
       case "update":
         target.replaceChildren(template.content.cloneNode(true));
         break;
-    }
-  }
-  afterSubmit(markup, url) {
-    this.historyPush(url, markup);
-    this.render(markup);
-  }
-  formUrl(form, values) {
-    if (form.method.toLowerCase() == "get") {
-      return form.action + "?" + new URLSearchParams(values);
-    } else {
-      return form.action;
     }
   }
   saveState(url, markup) {

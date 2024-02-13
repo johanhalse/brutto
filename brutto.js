@@ -43,10 +43,6 @@ class Brutto {
 
   async submit(el, stream) {
     const response = await this.getFormResponse(el);
-    if (response.redirected) {
-      return this.visit(response.url, "get");
-    }
-
     const markup = await response.text();
     if (stream) {
       this.renderStream(markup)
@@ -101,19 +97,6 @@ class Brutto {
     case "update":
       target.replaceChildren(template.content.cloneNode(true));
       break;
-    }
-  }
-
-  afterSubmit(markup, url) {
-    this.historyPush(url, markup);
-    this.render(markup);
-  }
-
-  formUrl(form, values) {
-    if (form.method.toLowerCase() == "get") {
-      return form.action + "?" + new URLSearchParams(values);
-    } else {
-      return form.action;
     }
   }
 
