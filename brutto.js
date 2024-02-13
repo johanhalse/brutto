@@ -28,12 +28,24 @@ class Brutto {
     if (e.target.nodeName == "A") {
       e.preventDefault();
       history.replaceState({ id: this.saveState(location.href, document.documentElement.innerHTML) }, "");
-      this.visit(e.target.href, e.target);
+      if (e.target.dataset["turboMethod"]) {
+        this.patch(e.target.href, e.target, e.target.dataset["turboMethod"]);
+      }
+      else {
+        this.visit(e.target.href, e.target);
+      }
     }
   }
 
+  async patch(url, el, method) {
+    const f = `<form method="post" action="${url}"><input type="hidden" name="_method" value="${method}" /></form>`;
+    const parser = new DOMParser();
+    const form = parser.parseFromString(f, "text/html").querySelector("form");
+    this.submit(form, this.afterSubmit.bind(this));
+  }
+
   async visit(url, el) {
-    const response = await fetch(url);
+    const response = await fetch(url, { headers: { Accept: "text/html,application/xhtml+xml,application/xml" } });
     if (response.status == 301 || response.status == 302) {
       return this.visit(response.url);
     }
@@ -58,14 +70,11 @@ class Brutto {
     const values = new FormData(el);
     const url = this.formUrl(el, values);
     const response = await this.formFetch(el, url, values);
-    if (response.status == 301 || response.status == 302) {
-      return this.visit(response.url);
-    }
     if (response.status == 204) {
       return this.visit(url);
     }
     const markup = await response.text();
-    cb(markup, url);
+    cb(markup, response.url);
     window.requestAnimationFrame(this.partialFireEvent("turbo:load"));
   }
 

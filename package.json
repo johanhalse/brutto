@@ -2,7 +2,7 @@
   "name": "@johanhalse/brutto",
   "type": "module",
   "exports": "./dist/brutto.js",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Kinda like Turbo but a lot less",
   "main": "brutto.js",
   "scripts": {
