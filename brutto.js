@@ -25,10 +25,12 @@ class Brutto {
   }
 
   async visit(url, method, stream) {
-    history.replaceState({ id: this.saveState(location.href, document.documentElement.innerHTML) }, "");
-    const response = await this.getLinkResponse(url, method);
+    if (!stream) {
+      history.replaceState({ id: this.saveState(location.href, document.documentElement.innerHTML) }, "");
+    }
+    const response = await this.getLinkResponse(url, method, stream);
     const markup = await response.text();
-    if (stream) {
+    if (stream && !response.redirected) {
       this.renderStream(markup)
     }
     else {
@@ -39,10 +41,12 @@ class Brutto {
   }
 
   async submit(el, stream) {
-    history.replaceState({ id: this.saveState(location.href, document.documentElement.innerHTML) }, "");
-    const response = await this.getFormResponse(el);
+    if (!stream) {
+      history.replaceState({ id: this.saveState(location.href, document.documentElement.innerHTML) }, "");
+    }
+    const response = await this.getFormResponse(el, stream);
     const markup = await response.text();
-    if (stream) {
+    if (stream && !response.redirected) {
       this.renderStream(markup)
     }
     else {
@@ -55,6 +59,7 @@ class Brutto {
   renderStream(markup, url) {
     const parser = new DOMParser();
     const dom = parser.parseFromString(markup, "text/html");
+    console.log(dom.querySelectorAll("turbo-stream"));
     Array.from(dom.querySelectorAll("turbo-stream")).forEach(this.processStreamTemplate.bind(this));
   }
 
@@ -92,6 +97,9 @@ class Brutto {
     case "remove":
       target.remove();
       break;
+    case "replace":
+      target.replaceWith(template.content.cloneNode(true));
+      break;
     case "update":
       target.replaceChildren(template.content.cloneNode(true));
       break;
@@ -110,7 +118,15 @@ class Brutto {
   }
 
   render(response) {
-    morphdom(document.documentElement, response);
+    morphdom(document.documentElement, response, {
+      onNodeAdded: function (node) {
+        if (node.nodeName === "SCRIPT") {
+          var script = document.createElement("script");
+          script.innerHTML = node.innerHTML;
+          node.replaceWith(script)
+        }
+      }
+    });
     return response;
   }
 
