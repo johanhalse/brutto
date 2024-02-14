@@ -25,11 +25,8 @@ class Brutto {
   }
 
   async visit(url, method, stream) {
+    history.replaceState({ id: this.saveState(location.href, document.documentElement.innerHTML) }, "");
     const response = await this.getLinkResponse(url, method);
-    if (response.redirected) {
-      return this.visit(response.url, "get");
-    }
-
     const markup = await response.text();
     if (stream) {
       this.renderStream(markup)
@@ -42,6 +39,7 @@ class Brutto {
   }
 
   async submit(el, stream) {
+    history.replaceState({ id: this.saveState(location.href, document.documentElement.innerHTML) }, "");
     const response = await this.getFormResponse(el);
     const markup = await response.text();
     if (stream) {

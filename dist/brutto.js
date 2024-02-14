@@ -569,7 +569,6 @@ var http_default = {
     if (e.target.nodeName == "A") {
       e.preventDefault();
       e.stopPropagation();
-      history.replaceState({ id: this.saveState(location.href, document.documentElement.innerHTML) }, "");
       this.visit(
         this.getUrl(e.target),
         this.getMethod(e.target),
@@ -583,7 +582,6 @@ var http_default = {
     }
     e.preventDefault();
     e.stopPropagation();
-    history.replaceState({ id: this.saveState(location.href, document.documentElement.innerHTML) }, "");
     this.submit(e.target, e.target.dataset["turboStream"] != void 0);
   },
   performFetch: function(url) {
@@ -612,15 +610,19 @@ var TurboFrame = class extends window.HTMLElement {
   constructor() {
     super();
     this.addEventListener("click", this.onClick.bind(this), false);
+    this.addEventListener("submit", this.onSubmit.bind(this), false);
     if (this.getAttribute("src")) {
       this.load(this.getAttribute("src"));
     }
   }
-  async visit(url, method) {
+  async visit(url, method, stream) {
     const response = await this.getLinkResponse(url, method);
-    if (response.redirected) {
-      return this.visit(response.url, "get");
-    }
+    const markup = await response.text();
+    this.render(markup);
+    window.requestAnimationFrame(window.Brutto.partialFireEvent("turbo:load"));
+  }
+  async submit(el, stream) {
+    const response = await this.getFormResponse(el);
     const markup = await response.text();
     this.render(markup);
     window.requestAnimationFrame(window.Brutto.partialFireEvent("turbo:load"));
@@ -677,10 +679,8 @@ var Brutto = class {
     };
   }
   async visit(url, method, stream) {
+    history.replaceState({ id: this.saveState(location.href, document.documentElement.innerHTML) }, "");
     const response = await this.getLinkResponse(url, method);
-    if (response.redirected) {
-      return this.visit(response.url, "get");
-    }
     const markup = await response.text();
     if (stream) {
       this.renderStream(markup);
@@ -691,6 +691,7 @@ var Brutto = class {
     window.requestAnimationFrame(this.partialFireEvent("turbo:load"));
   }
   async submit(el, stream) {
+    history.replaceState({ id: this.saveState(location.href, document.documentElement.innerHTML) }, "");
     const response = await this.getFormResponse(el);
     const markup = await response.text();
     if (stream) {
