@@ -1,5 +1,6 @@
 import morphdom from "morphdom";
-import TurboFrame from "./src/turbo-frame";
+import Http from "./lib/http.js";
+import TurboFrame from "./lib/turbo-frame.js";
 
 class Brutto {
   constructor() {
@@ -23,62 +24,35 @@ class Brutto {
     };
   }
 
-  onClick(e) {
-    if (e.target.dataset["turbo"] == "false") { return; }
-    if (e.target.nodeName == "A") {
-      e.preventDefault();
-      history.replaceState({ id: this.saveState(location.href, document.documentElement.innerHTML) }, "");
-      if (e.target.dataset["turboMethod"]) {
-        this.patch(e.target.href, e.target, e.target.dataset["turboMethod"]);
-      }
-      else {
-        this.visit(e.target.href, e.target);
-      }
-    }
-  }
-
-  async patch(url, el, method) {
-    const f = `<form method="post" action="${url}"><input type="hidden" name="_method" value="${method}" /></form>`;
-    const parser = new DOMParser();
-    const form = parser.parseFromString(f, "text/html").querySelector("form");
-    this.submit(form, this.afterSubmit.bind(this));
-  }
-
-  async visit(url, el) {
-    const response = await fetch(url, { headers: { Accept: "text/html,application/xhtml+xml,application/xml" } });
-    if (response.status == 301 || response.status == 302) {
-      return this.visit(response.url);
-    }
+  async visit(url, method, stream) {
+    history.replaceState({ id: this.saveState(location.href, document.documentElement.innerHTML) }, "");
+    const response = await this.getLinkResponse(url, method);
     const markup = await response.text();
-    this.historyPush(url, markup);
-    this.render(markup);
-    window.requestAnimationFrame(this.partialFireEvent("turbo:load"));
-  }
-
-  onSubmit(e) {
-    e.preventDefault();
-
-    if (e.target.dataset["turboStream"] != undefined) {
-      this.submit(e.target, this.stream.bind(this));
+    if (stream) {
+      this.renderStream(markup)
     }
     else {
-      this.submit(e.target, this.afterSubmit.bind(this));
+      this.historyPush(response.url, markup);
+      this.render(markup);
     }
-  }
-
-  async submit(el, cb) {
-    const values = new FormData(el);
-    const url = this.formUrl(el, values);
-    const response = await this.formFetch(el, url, values);
-    if (response.status == 204) {
-      return this.visit(url);
-    }
-    const markup = await response.text();
-    cb(markup, response.url);
     window.requestAnimationFrame(this.partialFireEvent("turbo:load"));
   }
 
-  stream(markup, url) {
+  async submit(el, stream) {
+    history.replaceState({ id: this.saveState(location.href, document.documentElement.innerHTML) }, "");
+    const response = await this.getFormResponse(el);
+    const markup = await response.text();
+    if (stream) {
+      this.renderStream(markup)
+    }
+    else {
+      this.historyPush(response.url, markup);
+      this.render(markup);
+    }
+    window.requestAnimationFrame(this.partialFireEvent("turbo:load"));
+  }
+
+  renderStream(markup, url) {
     const parser = new DOMParser();
     const dom = parser.parseFromString(markup, "text/html");
     Array.from(dom.querySelectorAll("turbo-stream")).forEach(this.processStreamTemplate.bind(this));
@@ -87,7 +61,7 @@ class Brutto {
   processStreamTemplate(streamNode) {
     const action = streamNode.getAttribute("action");
     const target = streamNode.getAttribute("target");
-    const targets = streamNode.getAttribute("targets"); // TODO
+    const targets = streamNode.getAttribute("targets");
     const template = streamNode.querySelector("template");
 
     if (target) {
@@ -122,60 +96,6 @@ class Brutto {
       target.replaceChildren(template.content.cloneNode(true));
       break;
     }
-  }
-
-  afterSubmit(markup, url) {
-    this.historyPush(url, markup);
-    this.render(markup);
-  }
-
-  formUrl(form, values) {
-    if (form.method.toLowerCase() == "get") {
-      return form.action + "?" + new URLSearchParams(values);
-    } else {
-      return form.action;
-    }
-  }
-
-  acceptValue(form) {
-    if (form.dataset["turbo-stream"]) {
-      return "text/vnd.turbo-stream.html, text/html, application/xhtml+xml";
-    }
-    else {
-      return "text/html,application/xhtml+xml,application/xml";
-    }
-  }
-
-  formFetch(form, url, values) {
-    const token = this.getCookieValue(this.getMetaContent("csrf-param")) || this.getMetaContent("csrf-token");
-    if (form.method.toLowerCase() == "get") {
-      return fetch(url, {
-        method: form.method,
-        headers: { Accept: this.acceptValue(form), "X-CSRF-Token": token },
-      });
-    } else {
-      return fetch(url, {
-        method: form.method,
-        body: values,
-        headers: { Accept: this.acceptValue(form), "X-CSRF-Token": token },
-      });
-    }
-  }
-
-  getCookieValue(cookieName) {
-    if (cookieName != null) {
-      const cookies = document.cookie ? document.cookie.split("; ") : [];
-      const cookie = cookies.find((cookie) => cookie.startsWith(cookieName));
-      if (cookie) {
-        const value = cookie.split("=").slice(1).join("=");
-        return value ? decodeURIComponent(value) : undefined;
-      }
-    }
-  }
-
-  getMetaContent(name) {
-    const element = document.querySelector(`meta[name="${name}"]`);
-    return element && element.content;
   }
 
   saveState(url, markup) {
@@ -218,6 +138,7 @@ class Brutto {
   }
 }
 
+Object.assign(Brutto.prototype, Http);
 const brutto = new Brutto();
 window.Brutto = brutto;
 export default brutto;

@@ -2,11 +2,11 @@
   "name": "@johanhalse/brutto",
   "type": "module",
   "exports": "./dist/brutto.js",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Kinda like Turbo but a lot less",
   "main": "brutto.js",
   "scripts": {
-    "build": "esbuild brutto.js --bundle --minify --format=esm --outdir=dist",
+    "build": "esbuild brutto.js --bundle --format=esm --outdir=dist",
     "watch": "esbuild brutto.js --bundle --watch --format=esm --outdir=dist",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
