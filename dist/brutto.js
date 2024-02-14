@@ -627,13 +627,11 @@ var TurboFrame = class extends window.HTMLElement {
     const response = await this.getLinkResponse(url, method);
     const markup = await response.text();
     this.render(markup);
-    window.requestAnimationFrame(window.Brutto.partialFireEvent("turbo:load"));
   }
   async submit(el, stream) {
     const response = await this.getFormResponse(el);
     const markup = await response.text();
     this.render(markup);
-    window.requestAnimationFrame(window.Brutto.partialFireEvent("turbo:load"));
   }
   async load(url) {
     const response = await fetch(url);
