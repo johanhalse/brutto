@@ -502,6 +502,9 @@ var morphdom_esm_default = morphdom;
 
 // lib/http.js
 var http_default = {
+  clickEventIsInsignificant(e) {
+    return e.target && e.target.isContentEditable || e.defaultPrevented || e.which > 1 || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey;
+  },
   createPatchForm(url, method) {
     const f = `<form method="post" action="${url}"><input type="hidden" name="_method" value="${method}" /></form>`;
     const parser = new DOMParser();
@@ -569,6 +572,9 @@ var http_default = {
     return target.getAttribute("href");
   },
   onClick(e) {
+    if (this.clickEventIsInsignificant(e)) {
+      return true;
+    }
     const link = this.findLink(e.target);
     if (link == null) {
       return true;
@@ -585,6 +591,9 @@ var http_default = {
     );
   },
   onSubmit(e) {
+    if (e.target.getAttribute("action") == null) {
+      return true;
+    }
     if (e.target.dataset["turbo"] == "false") {
       return true;
     }
