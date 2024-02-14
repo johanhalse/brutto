@@ -59,7 +59,6 @@ class Brutto {
   renderStream(markup, url) {
     const parser = new DOMParser();
     const dom = parser.parseFromString(markup, "text/html");
-    console.log(dom.querySelectorAll("turbo-stream"));
     Array.from(dom.querySelectorAll("turbo-stream")).forEach(this.processStreamTemplate.bind(this));
   }
 
